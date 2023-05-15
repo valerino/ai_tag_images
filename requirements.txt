@@ -1,0 +1,9 @@
+coloredlogs
+fastapi
+mmcv
+numpy
+openmim
+python-multipart
+torch
+torchvision
+uvicorn
