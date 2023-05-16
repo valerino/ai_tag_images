@@ -5,91 +5,65 @@ import time
 from tempfile import NamedTemporaryFile
 from typing import List, Optional
 
+import api.captioning
+import api.tagging
 import uvicorn
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from mmdet.apis import DetInferencer
-from mmdet.evaluation.functional.class_names import get_classes
 
 _logger = logging.getLogger()
-_inferencer: DetInferencer = None
+_args = {}
 _app = FastAPI()
 
 
-def _load_model(weights_path: str = './models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth',
-                config_path: str = './models/rtmdet_x_8xb32-300e_coco.py', device: str = 'cpu') -> DetInferencer:
-    """_summary_
+def build_result(tags: dict, caption: str = None, file_name: str = None, req_id: str = None, job_id: str = None) -> dict:
+    """
+    build a "success" jsend, with optional request id and job_id (added only if provided)
 
     Args:
-        weights_path (str, optional): _description_. Defaults to './models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth'.
-        config_path (str, optional): _description_. Defaults to './models/rtmdet_x_8xb32-300e_coco.py'.
-        device (str, optional): _description_. Defaults to 'cpu'.
+        tags (dict): _description_
+        file_name (str): _description_. Defaults to None.
+        caption (str): _description_. Defaults to None.
+        req_id (str, optional): _description_. Defaults to None.
+        job_id (str, optional): _description_. Defaults to None.
 
     Returns:
-        DetInferencer: _description_
+        dict: _description_
     """
-    # load model
-    inferencer = DetInferencer(
-        model=config_path, weights=weights_path, device=device)
-    return inferencer
+    #  done
+    now = time.time_ns() // 1_000_000
+    js = {'status': 'success', 'time_msec': now,
+          'data': {'tags': tags}}
+
+    if caption is not None:
+        js['data']['caption'] = caption
+
+    if file_name is not None:
+        js['data']['file_name'] = file_name
+
+    if req_id is not None:
+        js['req_id'] = req_id
+
+    if job_id is not None:
+        js['job_id'] = job_id
+    return js
 
 
-def get_img_tags(img_path: str, inferencer: DetInferencer = None, weights_path: str = './models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth', config_path: str = './models/rtmdet_x_8xb32-300e_coco.py', device: str = 'cpu', threshold: float = 0.7, remove_duplicates: bool = False) -> List:
-    """_summary_
-
-    Args:
-        img_path (str): _description_
-        inferencer (DetInferencer, optional): _description_. Defaults to None.
-        weights_path (str, optional): _description_. Defaults to './models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth'.
-        config_path (str, optional): _description_. Defaults to './models/rtmdet_x_8xb32-300e_coco.py'.
-        device (str, optional): _description_. Defaults to 'cpu'.
-        threshold (float, optional): _description_. Defaults to 0.7.
-        remove_duplicates (bool, optional): _description_. Defaults to False.
-
-    Returns:
-        List: _description_
+@_app.post("/process_image")
+async def process_image_handler(file: UploadFile = File(...), file_name: str = Form(default=None), threshold: float = Form(default=0.7), add_caption: bool = Form(default=False),
+                                req_id: str = Form(default=None), job_id: str = Form(default=None)) -> dict:
     """
-    if inferencer is None:
-        # load model
-        inferencer = _load_model(
-            weights_path=weights_path, config_path=config_path, device=device)
-
-    # inference
-    _logger.info('getting tags for image=%s, threshold=%f, remove duplicate tags=%r ...' % (
-        img_path, threshold, remove_duplicates))
-    result = inferencer(
-        inputs=img_path, batch_size=1, no_save_vis=True, pred_score_thr=threshold)
-
-    class_names = get_classes('coco')
-    _logger.info('[.] inferencing against %d classes ...' % (len(class_names)))
-    predictions = result['predictions'][0]
-    labels = predictions['labels']
-    scores = predictions['scores']
-
-    tags = []
-    for i, label in enumerate(labels):
-        if scores[i] > threshold:
-            tags.append(class_names[label])
-
-    if remove_duplicates:
-        _logger.warning(
-            'removing duplicate tags if any, original tags=%s ...' % (tags))
-        tags = list(dict.fromkeys(tags))
-
-    _logger.info('tags=%s ...' % (tags))
-    return tags
-
-
-@_app.post("/tag_image")
-async def tag_image_handler(file: UploadFile = File(...), threshold: float = Form(default=0.7), remove_duplicates: bool = Form(default=False),
-                            req_id: str = Form(default=None), job_id: str = Form(default=None)) -> dict:
-    """_summary_
+    generate tags for the given image, with the given detection threshold (default=0.7, fair good), optionally generates a caption using BLIP
 
     Args:
         file (UploadFile, optional): _description_. Defaults to File(...).
-        threshold (float, optional): _description_. Defaults to Form(...).
-        remove_duplicates (bool, optional): _description_. Defaults to Form(...).
-        req_id (str, optional): _description_. Defaults to Form(...).
-        job_id (str, optional): _description_. Defaults to Form(...).
+        file_name (str, optional): _description_. Defaults to Form(default=None).
+        threshold (float, optional): _description_. Defaults to Form(default=0.7).
+        add_caption (bool, optional): _description_. Defaults to Form(default=False).
+        req_id (str, optional): _description_. Defaults to Form(default=None).
+        job_id (str, optional): _description_. Defaults to Form(default=None).
+
+    Raises:
+        HTTPException: _description_
 
     Returns:
         dict: _description_
@@ -114,36 +88,40 @@ async def tag_image_handler(file: UploadFile = File(...), threshold: float = For
     finally:
         file.file.close()
 
-    # inference
-    tags = []
+    # inference and captioning
+    tags = {}
+    desc = None
     try:
-        tags = get_img_tags(img_path=temp_file.name, inferencer=_inferencer,
-                            threshold=threshold,  remove_duplicates=remove_duplicates)
+        global _args
+        config_path = _args.config_path[0]
+        tags = api.tagging.get_img_tags(img_path=temp_file.name, config_path=config_path,
+                                        threshold=threshold)
+        if add_caption:
+            # add caption
+            desc = api.captioning.get_img_caption(
+                img_path=temp_file.name, config_path=config_path)
     except Exception as ex:
         raise HTTPException(
-            status_code=500, detail='inference error !') from ex
+            status_code=500, detail='processing error !') from ex
     finally:
         os.unlink(temp_file.name)
 
     #  done
-    now = time.time_ns() // 1_000_000
-    js = {'status': 'success', 'time_msec':  now,
-          'data': {'tags': tags}, 'req_id': req_id}
-
-    if job_id is not None:
-        js['job_id'] = job_id
+    js = build_result(
+        tags, caption=desc, file_name=file_name, req_id=req_id, job_id=job_id)
     return js
 
 
 def start_server(args: dict):
-    """_summary_
+    """
+    start REST api server
 
     Args:
-        args (dict): _description_
+        args (dict): the commandline args dict
     """
-    # load model
-    global _inferencer
-    _inferencer = _load_model(args.weights[0], args.config[0], args.device[0])
+
+    global _args
+    _args = args
 
     # start server
     _logger.info('[.] starting server at %s ...' % (args.server[0]))

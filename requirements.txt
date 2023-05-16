@@ -6,4 +6,5 @@ openmim
 python-multipart
 torch
 torchvision
+transformers
 uvicorn
