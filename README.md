@@ -67,6 +67,6 @@ using REST api server, start server first
 then call *process_image* endpoint
 
 ~~~bash
-curl -L -F "threshold=0.5" -F "add_caption=True" -F "job_id=prova" -F "file_path=ducks.jpg" -F "file=@./sample_images/ducks.jpg" http://127.0.0.1:8080/process_image
-{"status":"success","time_msec":1684269861711,"data":{"tags":{"bird":2},"caption":"ducks standing on a rock near the water and a river"},"req_id":"1684269859207291701","job_id":"prova"}
+curl -L -F "threshold=0.5" -F "add_caption=True" -F "job_id=prova" -F "file_name=ducks.jpg" -F "file=@./sample_images/ducks.jpg" http://127.0.0.1:8080/process_image
+{"status":"success","time_msec":1684269861711,"data":{"tags":{"bird":2},"file_name": "ducks.jpg", "caption":"ducks standing on a rock near the water and a river"},"req_id":"1684269859207291701","job_id":"prova"}
 ~~~
