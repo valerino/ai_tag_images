@@ -1,6 +1,6 @@
 # tag_image
 
-AI image tagging and captioning, using [mmdetection](https://github.com/open-mmlab/mmdetection) framework and BLIP.
+AI image tagging and captioning, using [mmdetection](https://github.com/open-mmlab/mmdetection) framework and [BLIP](https://github.com/salesforce/BLIP).
 
 ## install
 
