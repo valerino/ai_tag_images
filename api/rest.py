@@ -100,9 +100,6 @@ async def process_image_handler(file: UploadFile = File(...), file_name: str = F
             # add caption
             desc = api.captioning.get_img_caption(
                 img_path=temp_file.name, config_path=config_path)
-    except Exception as ex:
-        raise HTTPException(
-            status_code=500, detail='processing error !') from ex
     finally:
         os.unlink(temp_file.name)
 
@@ -110,6 +107,14 @@ async def process_image_handler(file: UploadFile = File(...), file_name: str = F
     js = build_result(
         tags, caption=desc, file_name=file_name, req_id=req_id, job_id=job_id)
     return js
+
+
+def init(args: dict):
+    """load models if needed
+
+    Args:
+        args (dict): _description_
+    """
 
 
 def start_server(args: dict):
@@ -122,6 +127,14 @@ def start_server(args: dict):
 
     global _args
     _args = args
+
+    config_path = args.config_path[0]
+
+    # load model for tagging
+    api.tagging.load_model(config_path)
+
+    # load model for captioning
+    api.captioning.load_model(config_path)
 
     # start server
     _logger.info('[.] starting server at %s ...' % (args.server[0]))

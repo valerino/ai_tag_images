@@ -2,15 +2,16 @@ import json
 import logging
 import os
 
+from fastapi import HTTPException
 from PIL import Image
 from transformers import BlipForConditionalGeneration, BlipProcessor
 
 _logger = logging.getLogger()
 _processor: BlipProcessor = None
-_model: tuple = None
+_model = None
 
 
-def _load_model(config_path: str = './config.json') -> tuple:
+def load_model(config_path: str = './config.json') -> tuple:
     """
     loads(and possibly downloads to default huggingface models cache) the model set in the configuration. by default, the configuration uses 
         model="Salesforce/blip-image-captioning-large"
@@ -26,21 +27,26 @@ def _load_model(config_path: str = './config.json') -> tuple:
         js = f.read()
         config = json.loads(js)
 
-    # load model
-    n = config['captioning']
-    # this is optional, either default huggingface cache directory will be used
-    cache_dir = os.path.abspath(config.get('models_cache', './models'))
-    model_id = n['model']
+    # load model (optional)
+    n_c = config.get('captioning', None)
+    if n_c is not None:
+        n = config['captioning']
+        # this is optional, either default huggingface cache directory will be used
+        cache_dir = os.path.abspath(config.get('models_cache', './models'))
+        model_id = n['model']
 
-    _logger.info('loading model %s ...' % (model_id))
-    model = BlipForConditionalGeneration.from_pretrained(
-        model_id, cache_dir=cache_dir)
-    processor = BlipProcessor.from_pretrained(model_id)
-    global _processor, _model
-    _processor = processor
-    _model = model
-    _logger.info('model%s initialized!' % (model_id))
-    return model, processor
+        _logger.info('loading (or downloading) model %s ...' % (model_id))
+        model = BlipForConditionalGeneration.from_pretrained(
+            model_id, cache_dir=cache_dir)
+        processor = BlipProcessor.from_pretrained(model_id)
+        global _processor, _model
+        _processor = processor
+        _model = model
+        _logger.info('model%s initialized!' % (model_id))
+        return model, processor
+
+    #  no captioning
+    return None, None
 
 
 def get_img_caption(img_path: str, config_path: str = './config.json') -> str:
@@ -57,7 +63,11 @@ def get_img_caption(img_path: str, config_path: str = './config.json') -> str:
     """
     global _processor, _model
     if _model is None:
-        _load_model(config_path)
+        load_model(config_path)
+
+    if _processor is None:
+        raise HTTPException(
+            status_code=404, detail='captioning model not loaded!')
 
     # open image
     _logger.info('opening image %s ...' % (img_path))

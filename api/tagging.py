@@ -14,14 +14,9 @@ _inferencer: DetInferencer = None
 _logger = logging.getLogger()
 
 
-def _load_model(config_path: str = './config.json', ) -> DetInferencer:
+def load_model(config_path: str = './config.json', ) -> DetInferencer:
     """
-    loads the model set in the configuration. by default, the configuration uses 
-        weigths="./models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth"
-        model="./models/rtmdet_x_8xb32-300e_coco.py"
-        device="cpu"
-
-        device can be "cuda:0" to use cuda.
+    loads the model set in the configuration
 
     Args:
         config_path (str, optional): _description_. Defaults to './config.json'.
@@ -46,22 +41,22 @@ def _load_model(config_path: str = './config.json', ) -> DetInferencer:
     if not os.path.exists(model_path + '.py'):
         # download model
         _logger.info('downloading model %s ...' % (model_path))
-        weights = mim.download('mmdet', [model], dest_root=cache_dir)
-        weights_path = os.path.join(cache_dir, weights[0])
+        checkpoints = mim.download('mmdet', [model], dest_root=cache_dir)
+        checkpoints_path = os.path.join(cache_dir, checkpoints[0])
 
         # save weigths back into config to be reused
-        n['weights'] = weights_path
+        n['checkpoints'] = checkpoints_path
         with open(config_path, 'w') as f:
             f.write(json.dumps(config, indent=2))
     else:
         # read from config
-        weights_path = n['weights']
+        checkpoints_path = n['checkpoints']
 
     # load model
     _logger.info('loading model %s ...' % (model_path))
     model_path += '.py'
     inferencer = DetInferencer(
-        model=model_path, weights=weights_path, device=device)
+        model=model_path, weights=checkpoints_path, device=device)
     global _inferencer
     _inferencer = inferencer
 
@@ -106,7 +101,7 @@ def get_img_tags(img_path: str, config_path: str = './config.json', threshold: f
     """
     global _inferencer
     if _inferencer is None:
-        _load_model(config_path)
+        load_model(config_path)
 
     # inference
     _logger.info('getting tags for image=%s, threshold=%f' % (

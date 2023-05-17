@@ -42,8 +42,6 @@ options:
 
 the [default configuration](./config.json) can be edited to use other models.
 
-> the models are loaded (and possibly downloaded) the first time the image processing code is called. so, first call will always take more.
-
 ### commandline
 
 ~~~bash
