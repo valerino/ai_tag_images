@@ -27,7 +27,7 @@ coloredlogs.install(level='INFO')
 
 def main():
     parser = ArgumentParser(
-        description='tags images using RTMDet model with COCO weights, and add caption using BLIP.')
+        description='tags images using mmdetection and add caption using BLIP.')
     parser.add_argument(
         '--img_path', nargs=1, type=str, help='path to the input image, ignored if --server is specified.')
     parser.add_argument('--config_path', type=str, nargs=1, default=['./config.json'],
@@ -41,6 +41,8 @@ def main():
     args = parser.parse_args()
 
     try:
+        # ensure models directory exists
+        os.makedirs('./models', exist_ok=True)
         if args.server[0] is None:
             # tag
             _logger.info('[.] command line, img=%s, config_path=%s, threshold=%s, add_caption=%r ...' % (

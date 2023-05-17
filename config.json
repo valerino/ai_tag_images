@@ -1,10 +1,11 @@
 {
-    "tagging": {
-        "weights": "./models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth",
-        "model_config": "./models/rtmdet_x_8xb32-300e_coco.py",
-        "device": "cpu"
-    },
-    "captioning": {
-        "model": "Salesforce/blip-image-captioning-large"
-    }
+  "models_cache": "./models",
+  "tagging": {
+    "model": "rtmdet_x_8xb32-300e_coco",
+    "device": "cpu",
+    "weights": "/Users/valerio.lupi/repos/ai/tag_image/models/rtmdet_x_8xb32-300e_coco_20220715_230555-cc79b9ae.pth"
+  },
+  "captioning": {
+    "model": "Salesforce/blip-image-captioning-large"
+  }
 }

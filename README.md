@@ -8,11 +8,9 @@ requires python 3.9+
 
 ~~~bash
 pip3 install -r ./requirements
+# for reference, this project has been developed at ecac3a77becc63f23d9f6980b2a36f86acd00a8a, so checkout this specific commit if you have problems...
 git clone https://github.com/open-mmlab/mmdetection
 pip3 install -e ./mmdetection
-
-# download the rtmdet extra-large coco model (~350MB) used for image tagging with mmdetection
-mim download mmdet --config rtmdet_x_8xb32-300e_coco --dest ./models
 ~~~
 
 ## usage
@@ -23,8 +21,7 @@ usage: tag_image.py [-h] [--img_path IMG_PATH] [--config_path CONFIG_PATH]
                     [--tag_threshold TAG_THRESHOLD] [--server SERVER]
                     [--add_caption]
 
-tags images using RTMDet model with COCO weights, and add caption using
-BLIP.
+tags images using mmdetection and add caption using BLIP.
 
 options:
   -h, --help            show this help message and exit
@@ -45,7 +42,7 @@ options:
 
 the [default configuration](./config.json) can be edited to use other models.
 
-> the models are loaded (and possibly downloaded, for the captioning part) the first time the image processing code is called. so, first call will always take more.
+> the models are loaded (and possibly downloaded) the first time the image processing code is called. so, first call will always take more.
 
 ### commandline
 

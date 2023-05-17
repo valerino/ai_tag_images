@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Optional
+import os
 
 from PIL import Image
 from transformers import BlipForConditionalGeneration, BlipProcessor
@@ -28,10 +28,13 @@ def _load_model(config_path: str = './config.json') -> tuple:
 
     # load model
     n = config['captioning']
+    # this is optional, either default huggingface cache directory will be used
+    cache_dir = os.path.abspath(config.get('models_cache', './models'))
     model_id = n['model']
-    _logger.info('loading model %s ...' % (model_id))
 
-    model = BlipForConditionalGeneration.from_pretrained(model_id)
+    _logger.info('loading model %s ...' % (model_id))
+    model = BlipForConditionalGeneration.from_pretrained(
+        model_id, cache_dir=cache_dir)
     processor = BlipProcessor.from_pretrained(model_id)
     global _processor, _model
     _processor = processor

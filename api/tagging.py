@@ -1,9 +1,11 @@
 import json
 import logging
+import os
 import time
 from tempfile import NamedTemporaryFile
 from typing import List, Optional
 
+import mim
 from mmdet.apis import DetInferencer
 from mmdet.evaluation.functional.class_names import get_classes
 
@@ -32,15 +34,34 @@ def _load_model(config_path: str = './config.json', ) -> DetInferencer:
         js = f.read()
         config = json.loads(js)
 
-    # load model
     n = config['tagging']
-    _logger.info(n)
-    model = n['model_config']
-    weights_path = n['weights']
-    device = n['device']
+    cache_dir = os.path.abspath(config.get('models_cache', './models'))
 
+    _logger.info(n)
+    model = n['model']
+    # assume cpu by default, either use 'cuda:0'
+    device = n.get('device', 'cpu')
+    model_path = os.path.join(cache_dir, model)
+
+    if not os.path.exists(model_path + '.py'):
+        # download model
+        _logger.info('downloading model %s ...' % (model_path))
+        weights = mim.download('mmdet', [model], dest_root=cache_dir)
+        weights_path = os.path.join(cache_dir, weights[0])
+
+        # save weigths back into config to be reused
+        n['weights'] = weights_path
+        with open(config_path, 'w') as f:
+            f.write(json.dumps(config, indent=2))
+    else:
+        # read from config
+        weights_path = n['weights']
+
+    # load model
+    _logger.info('loading model %s ...' % (model_path))
+    model_path += '.py'
     inferencer = DetInferencer(
-        model=model, weights=weights_path, device=device)
+        model=model_path, weights=weights_path, device=device)
     global _inferencer
     _inferencer = inferencer
 
